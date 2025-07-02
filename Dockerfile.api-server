@@ -1,0 +1,28 @@
+# Use an official Node.js runtime as a parent image
+FROM node:21
+
+# Set the working directory
+WORKDIR /src
+
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# Accept NODE_ENV as a build argument and default to development
+ARG NODE_ENV=development
+ENV NODE_ENV=$NODE_ENV
+
+# Install dependencies based on the environment (production or development)
+RUN if [ "$NODE_ENV" = "production" ]; then npm install --only=production; else npm install; fi
+
+# Copy the rest of the application code
+COPY . .
+
+# Expose the port the app runs on
+EXPOSE 3100
+
+# In development, use nodemon for auto-reloading; in production, use node
+CMD if [ "$NODE_ENV" = "production" ]; then node app.js; else nodemon app.js; fi
+
+# Healthcheck to monitor the app (optional, for both development and production)
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD curl -f http://localhost:3100/health || exit 1
