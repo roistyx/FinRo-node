@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>CSV Viewer</title>
+    <style>
+      table {
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      th,
+      td {
+        border: 1px solid #ccc;
+        padding: 8px 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Upload a CSV File</h2>
+    <input type="file" id="csvFile" accept=".csv" />
+    <div id="output"></div>
+
+    <script>
+      document
+        .getElementById("csvFile")
+        .addEventListener("change", function (event) {
+          const file = event.target.files[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            const text = e.target.result;
+            displayCSV(text);
+          };
+          reader.readAsText(file);
+        });
+
+      function displayCSV(csvText) {
+        const rows = csvText.trim().split("\n");
+        const table = document.createElement("table");
+
+        rows.forEach((row, rowIndex) => {
+          const tr = document.createElement("tr");
+          const cells = row.split(",");
+
+          cells.forEach((cell) => {
+            const td = document.createElement(rowIndex === 0 ? "th" : "td");
+            td.textContent = cell.trim();
+            tr.appendChild(td);
+          });
+
+          table.appendChild(tr);
+        });
+
+        const output = document.getElementById("output");
+        output.innerHTML = "";
+        output.appendChild(table);
+      }
+    </script>
+  </body>
+</html>
