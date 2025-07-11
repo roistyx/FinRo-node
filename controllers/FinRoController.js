@@ -45,6 +45,20 @@ class FinRoController {
 
     res.json({ message: "Processed CSV successfully", data: results });
   }
+
+  static async getAccounts(req, res) {
+    console.log("Fetching accounts from environment variable");
+    if (!process.env.ACCOUNTS) {
+      return res.status(500).json({ message: "No accounts configured." });
+    }
+    try {
+      const accounts = JSON.parse(process.env.ACCOUNTS || "[]");
+      res.json(accounts);
+    } catch (error) {
+      console.error("Failed to parse ACCOUNTS env variable", error);
+      res.status(500).json({ message: "Error retrieving accounts." });
+    }
+  }
 }
 
 module.exports = FinRoController;

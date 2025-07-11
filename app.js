@@ -32,6 +32,7 @@ app.post(
   csvUploadValidator,
   FinRoController.processCsv
 );
+app.post("/accounts", FinRoController.getAccounts);
 
 const port = process.env.API_PORT;
 app.listen(port, () => {
