@@ -2,10 +2,40 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <title>CSV Transformer</title>
+    <script defer src="csvTool.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 2rem;
+      }
+      input[type="file"] {
+        margin-bottom: 1rem;
+      }
+      button {
+        margin-top: 1rem;
+      }
+      #csvTable {
+        margin-top: 1rem;
+        border-collapse: collapse;
+        width: 100%;
+      }
+      #csvTable th,
+      #csvTable td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: left;
+      }
+      #csvTable th {
+        background-color: #f9f9f9;
+      }
+    </style>
   </head>
   <body>
-    Hello
+    <h2>Upload CSV to Extract Symbol and Company</h2>
+    <input type="file" id="csvFileInput" accept=".csv" />
+    <br />
+    <button id="downloadBtn" disabled>Download Transformed CSV</button>
+    <table id="csvTable"></table>
   </body>
 </html>

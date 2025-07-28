@@ -1,59 +1,269 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <title>CSV Viewer</title>
+    <meta charset="UTF-8" />
+    <title>CSV Upload → Extract Holdings & Cost Info</title>
     <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 24px;
+      }
       table {
         border-collapse: collapse;
-        margin-top: 20px;
+        width: 100%;
+        margin-top: 16px;
       }
       th,
       td {
-        border: 1px solid #ccc;
-        padding: 8px 12px;
+        border: 1px solid #ddd;
+        padding: 6px 8px;
+        font-size: 14px;
+      }
+      th {
+        background: #f5f5f5;
+        text-align: left;
+      }
+      #downloadBtn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
       }
     </style>
   </head>
   <body>
-    <h2>Upload a CSV File</h2>
-    <input type="file" id="csvFile" accept=".csv" />
-    <div id="output"></div>
+    <h1>
+      CSV Upload → Extract HoldingsDollars, HoldingsShares, CostTotal,
+      CostPerShare
+    </h1>
+    <input id="csvFileInput" type="file" accept=".csv,text/csv" />
+    <button id="downloadBtn" disabled>Download Transformed CSV</button>
+    <table id="csvTable"></table>
 
     <script>
       document
-        .getElementById("csvFile")
-        .addEventListener("change", function (event) {
-          const file = event.target.files[0];
-          if (!file) return;
+        .getElementById("csvFileInput")
+        .addEventListener("change", handleFile);
+      document
+        .getElementById("downloadBtn")
+        .addEventListener("click", downloadCSV);
 
-          const reader = new FileReader();
-          reader.onload = function (e) {
-            const text = e.target.result;
-            displayCSV(text);
-          };
-          reader.readAsText(file);
-        });
+      let transformedData = [];
+      let orderedHeaders = [];
 
-      function displayCSV(csvText) {
-        const rows = csvText.trim().split("\n");
-        const table = document.createElement("table");
+      function handleFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
 
-        rows.forEach((row, rowIndex) => {
-          const tr = document.createElement("tr");
-          const cells = row.split(",");
+        console.log("📂 File selected:", file.name);
 
-          cells.forEach((cell) => {
-            const td = document.createElement(rowIndex === 0 ? "th" : "td");
-            td.textContent = cell.trim();
-            tr.appendChild(td);
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const text = e.target.result;
+          console.log("📄 Raw file content loaded.");
+          transformedData = transformCSV(text);
+
+          orderedHeaders = computeOrderedHeaders(transformedData);
+          padMissingColumns(transformedData, orderedHeaders);
+
+          displayTable(transformedData, orderedHeaders);
+          document.getElementById("downloadBtn").disabled =
+            transformedData.length === 0;
+        };
+        reader.readAsText(file);
+      }
+
+      function transformCSV(csvText) {
+        const lines = csvText
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter(Boolean);
+        if (!lines.length) return [];
+
+        const header = lines[0];
+        console.log("🔍 Header:", header);
+
+        const output = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const raw = lines[i];
+          if (!raw) continue;
+
+          console.log(`\n🔹 Line ${i}: ${raw}`);
+
+          const cleaned = raw.replace(/\blogo\b/i, "").trim();
+          console.log(`   🔧 Cleaned: ${cleaned}`);
+
+          const match = cleaned.match(/^([A-Z]+)\s+([^,]+)(.*)$/);
+
+          if (match) {
+            const symbol = match[1];
+            const company = match[2].trim();
+            const rawRemainder = match[3];
+
+            console.log(`   🏷️ Symbol: ${symbol}`);
+            console.log(`   🏢 Company: ${company}`);
+            console.log(`   📦 Raw Remainder: ${rawRemainder}`);
+
+            const remainder = rawRemainder
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean);
+
+            console.log("   🧹 Remainder Fields (Before removal):", remainder);
+
+            if (remainder.length > 0) {
+              console.log("   🗑️ Removed Column After Company:", remainder[0]);
+            } else {
+              console.log("   ⚠️ No column found to remove after Company");
+            }
+
+            const filtered = remainder.slice(1); // skip first column after Company
+
+            // Extract Holdings
+            const holdingsField = filtered[0] || "";
+            const dollarMatch = holdingsField.match(/\$(\d+[.,]?\d*)/);
+            const sharesMatch = holdingsField.match(
+              /\$(?:\d+[.,]?\d*)\s+([\d.]+)\s*shares?/i
+            );
+
+            const holdingsDollars = dollarMatch ? dollarMatch[1] : "";
+            const holdingsShares = sharesMatch ? sharesMatch[1] : "";
+
+            console.log("   💵 HoldingsDollars:", holdingsDollars);
+            console.log("   📊 HoldingsShares:", holdingsShares);
+
+            // Extract CostTotal and CostPerShare from any field with 2+ dollar amounts
+            let costTotal = "";
+            let costPerShare = "";
+
+            for (const field of filtered) {
+              const matches = [...field.matchAll(/\$(\d+(?:\.\d+)?)/g)];
+              if (matches.length >= 2) {
+                costTotal = matches[0][1];
+                costPerShare = matches[1][1];
+                break;
+              }
+            }
+
+            console.log("   💰 CostTotal:", costTotal);
+            console.log("   🧮 CostPerShare:", costPerShare);
+
+            const row = {
+              Symbol: symbol,
+              Company: company,
+              HoldingsDollars: holdingsDollars,
+              HoldingsShares: holdingsShares,
+              CostTotal: costTotal,
+              CostPerShare: costPerShare,
+            };
+
+            // Remaining columns as col2, col3, ...
+            filtered.slice(1).forEach((val, idx) => {
+              row[`col${idx + 2}`] = val;
+            });
+
+            console.log("   ✅ Final Row Object:", row);
+            output.push(row);
+          } else {
+            console.warn(`   ⚠️ Could not parse line: ${cleaned}`);
+          }
+        }
+
+        console.log(
+          "✅ Transformation complete. Total rows parsed:",
+          output.length
+        );
+        return output;
+      }
+
+      function computeOrderedHeaders(data) {
+        if (!data.length) return [];
+
+        const allKeys = new Set();
+        data.forEach((row) => Object.keys(row).forEach((k) => allKeys.add(k)));
+
+        const fixed = [
+          "Symbol",
+          "Company",
+          "HoldingsDollars",
+          "HoldingsShares",
+          "CostTotal",
+          "CostPerShare",
+        ];
+        const colns = [...allKeys]
+          .filter((k) => /^col\d+$/.test(k))
+          .sort((a, b) => Number(a.slice(3)) - Number(b.slice(3)));
+        const others = [...allKeys].filter(
+          (k) => !fixed.includes(k) && !/^col\d+$/.test(k)
+        );
+
+        return [...fixed.filter((k) => allKeys.has(k)), ...colns, ...others];
+      }
+
+      function padMissingColumns(data, headers) {
+        data.forEach((row) => {
+          headers.forEach((h) => {
+            if (!(h in row)) {
+              row[h] = "";
+            }
           });
+        });
+      }
 
-          table.appendChild(tr);
+      function displayTable(data, headers) {
+        const table = document.getElementById("csvTable");
+        table.innerHTML = "";
+
+        if (!data.length) return;
+
+        const theadRow = table.insertRow();
+        headers.forEach((h) => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          theadRow.appendChild(th);
         });
 
-        const output = document.getElementById("output");
-        output.innerHTML = "";
-        output.appendChild(table);
+        data.forEach((row) => {
+          const tr = table.insertRow();
+          headers.forEach((key) => {
+            const td = tr.insertCell();
+            td.textContent = row[key];
+          });
+        });
+      }
+
+      function downloadCSV() {
+        if (!transformedData.length) return;
+
+        const headers = orderedHeaders.length
+          ? orderedHeaders
+          : Object.keys(transformedData[0]);
+
+        const rows = transformedData.map((obj) =>
+          headers.map((key) => escapeCSV(obj[key]))
+        );
+        const csvContent = [
+          headers.join(","),
+          ...rows.map((row) => row.join(",")),
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "Transformed.csv";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      function escapeCSV(value) {
+        if (value == null) return "";
+        const str = String(value);
+        if (/[",\n]/.test(str)) {
+          return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
       }
     </script>
   </body>
