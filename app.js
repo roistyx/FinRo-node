@@ -16,6 +16,7 @@ app.use(
   cors({
     origin: process.env.CLIENT_URL,
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"], // ✅ add this line
   })
 );
 
@@ -33,6 +34,14 @@ app.post(
   FinRoController.processCsv
 );
 app.post("/accounts", FinRoController.getAccounts);
+app.get("/accounts/public-auth", FinRoController.getPublicApiKey);
+app.get("/accounts/portfolio/:accountId", FinRoController.getPublicPortfolio);
+app.post(
+  "/csv/upload-csv",
+  upload.single("file"),
+  csvUploadValidator,
+  FinRoController.processCsv
+);
 
 const port = process.env.API_PORT;
 app.listen(port, () => {
