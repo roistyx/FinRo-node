@@ -1,4 +1,6 @@
 require("dotenv").config();
+const SchwabService = require("../services/SchwabService");
+
 const PDFDocument = require("pdfkit");
 const getStream = require("get-stream");
 const axios = require("axios");
@@ -193,6 +195,22 @@ class FinRoController {
         message: "Error fetching portfolio from Public API.",
         error: error.response?.data || error.message,
       });
+    }
+  }
+
+  static async getPublicQuote(req, res) {
+    console.log(req.params);
+    try {
+      const symbol = (req.params || "").toUpperCase();
+      if (!symbol) return res.status(400).json({ error: "Missing symbol" });
+
+      // Fetch from Schwab Market Data
+      const quote = await SchwabService.getQuote(symbol);
+      console.log("getQuote result:", quote);
+      res.json(quote);
+    } catch (err) {
+      console.error("getQuote error:", err?.response?.data || err.message);
+      res.status(500).json({ error: "Failed to fetch quote" });
     }
   }
 }
